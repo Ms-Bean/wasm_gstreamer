@@ -10,7 +10,9 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_wgpu.h"
+#include "graph.h"
 #include <stdio.h>
+#include <string.h>
 #include <emscripten.h>
 #include <emscripten/html5.h>
 #include <emscripten/html5_webgpu.h>
@@ -26,6 +28,16 @@ static WGPUSwapChain     wgpu_swap_chain = nullptr;
 static int               wgpu_swap_chain_width = 0;
 static int               wgpu_swap_chain_height = 0;
 
+struct Window_Data
+{
+    char *title;
+    bool is_active;
+    float pos_x;
+    float pos_y;
+};
+
+struct Graph nodes;
+
 // Forward declarations
 static void MainLoopStep(void* window);
 static bool InitWGPU();
@@ -35,6 +47,7 @@ static void print_wgpu_error(WGPUErrorType error_type, const char* message, void
 // Main code
 int main(int, char**)
 {
+
     glfwSetErrorCallback(print_glfw_error);
     if (!glfwInit())
         return 1;
@@ -99,6 +112,27 @@ int main(int, char**)
     //IM_ASSERT(font != nullptr);
 #endif
 
+    struct Window_Data win1;
+    struct Window_Data win2;
+
+    win1.title = (char *)malloc(sizeof(char) * 50);
+    win2.title = (char *)malloc(sizeof(char) * 50);
+    win1.is_active = true;
+    win2.is_active = true;
+    win1.pos_x = 0;
+    win1.pos_y = 0;
+    win2.pos_x = 0;
+    win2.pos_y = 0;
+
+    strcpy(win1.title, "Hello world!\n");
+    strcpy(win2.title, "Hello back!\n");
+
+    nodes = graph_init(sizeof(struct Window_Data), 2);
+
+    graph_setval(&nodes, 0, &win1);
+    graph_setval(&nodes, 1, &win2);
+    graph_add_edge(&nodes, 0, 1);
+
     // This function will directly return and exit the main function.
     // Make sure that no required objects get cleaned up.
     // This way we can use the browsers 'requestAnimationFrame' to control the rendering.
@@ -135,7 +169,7 @@ static bool InitWGPU()
 
 static void MainLoopStep(void* window)
 {
-    ImGuiIO& io = ImGui::GetIO();
+    int i;
     glfwPollEvents();
 
     int width, height;
@@ -164,46 +198,32 @@ static void MainLoopStep(void* window)
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    // Our state
-    // (we use static, which essentially makes the variable globals, as a convenience to keep the example code easy to follow)
-    static bool show_demo_window = true;
-    static bool show_another_window = false;
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-    if (show_demo_window)
-    // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
-    {
-        static float f = 0.0f;
-        static int counter = 0;
+    for(i = 0; i < nodes.num_vertices; i++)
+    {                           // Create a window called "Hello, world!" and append into it.
+        if(nodes.vertices[i] != NULL)
+        {
+            int j;
+            struct Window_Data *window_data = (struct Window_Data *)graph_getval(&nodes, i);
+            ImGui::Begin(window_data->title, &window_data->is_active);     
+            ImGui::Text("%s\n", window_data->title);
+            window_data->pos_x = ImGui::GetWindowPos().x;
+            window_data->pos_y = ImGui::GetWindowPos().y;
 
-        ImGui::Begin("Hello, worrld test test!");                                // Create a window called "Hello, world!" and append into it.
-
-        ImGui::Text("IT WORKSt.");                     // Display some text (you can use a format strings too)
-        ImGui::Checkbox("Demo Window", &show_demo_window);            // Edit bools storing our window open/close state
-        ImGui::Checkbox("Another Window", &show_another_window);
-
-
-        if (ImGui::Button("Button"))                                  // Buttons return true when clicked (most widgets return true when edited/activated)
-            counter++;
-        ImGui::SameLine();
-        ImGui::Text("counter = %d", counter);
-
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::End();
-    }
-    
-    ImGui::Begin("Hello");                                // Create a window called "Hello, world!" and append into it.
-    ImGui::Text("Some text"); 
-    ImGui::End();
-    // 3. Show another simple window.
-    if (show_another_window)
-    {
-        ImGui::Begin("Another Window", &show_another_window);         // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-        ImGui::Text("Hello from another window!");
-        if (ImGui::Button("Close Me"))
-            show_another_window = false;
-        ImGui::End();
+            for(j = 0; j < nodes.num_vertices; j++)
+            {
+                if(graph_has_edge(&nodes, i, j))
+                {
+                    struct Window_Data *neighbor_data = (struct Window_Data *)graph_getval(&nodes, j);
+                    ImVec2 pos_from = ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y);
+                    ImVec2 pos_to = ImVec2(neighbor_data->pos_x, neighbor_data->pos_y);
+                    ImU32 color = 0xFFFFFFFF;
+                    ImGui::GetForegroundDrawList()->AddLine(pos_from, pos_to, color);
+                }
+            }
+            ImGui::End();
+        }      
     }
 
     // Rendering
