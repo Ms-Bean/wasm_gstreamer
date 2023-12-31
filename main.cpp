@@ -34,6 +34,8 @@ struct Window_Data
     bool is_active;
     float pos_x;
     float pos_y;
+
+    bool is_selected;
 };
 
 struct Graph nodes;
@@ -112,26 +114,9 @@ int main(int, char**)
     //IM_ASSERT(font != nullptr);
 #endif
 
-    struct Window_Data win1;
-    struct Window_Data win2;
 
-    win1.title = (char *)malloc(sizeof(char) * 50);
-    win2.title = (char *)malloc(sizeof(char) * 50);
-    win1.is_active = true;
-    win2.is_active = true;
-    win1.pos_x = 0;
-    win1.pos_y = 0;
-    win2.pos_x = 0;
-    win2.pos_y = 0;
+    nodes = graph_init(sizeof(struct Window_Data));
 
-    strcpy(win1.title, "Hello world!\n");
-    strcpy(win2.title, "Hello back!\n");
-
-    nodes = graph_init(sizeof(struct Window_Data), 2);
-
-    graph_setval(&nodes, 0, &win1);
-    graph_setval(&nodes, 1, &win2);
-    graph_add_edge(&nodes, 0, 1);
 
     // This function will directly return and exit the main function.
     // Make sure that no required objects get cleaned up.
@@ -199,7 +184,37 @@ static void MainLoopStep(void* window)
     ImGui::NewFrame();
 
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    static int node_counter = 0;
+    static bool show_create_nodes_window = true;
+    if(show_create_nodes_window)
+    {
+        ImGui::Begin("Create new nodes", &show_create_nodes_window);
+        if(ImGui::Button("Add Node"))
+        {
+            struct Window_Data new_window;
+            char *title = NULL;
+            int char_count;
+            
+            node_counter++;
+            char_count = snprintf(title, 0, "Node %d", node_counter);
 
+            title = (char *)malloc(sizeof(char) * (char_count + 1));
+            if(title == NULL)
+            {
+                printf("MainLoopStep: malloc error\n");
+                exit(4);
+            }
+            snprintf(title, sizeof(char) * (char_count + 1), "Node %d", node_counter);
+
+            new_window.title = title;
+            new_window.pos_x = new_window.pos_y = 0;
+            new_window.is_active = 1;
+            new_window.is_selected = 0;
+            graph_add_vertex(&nodes, &new_window);
+        }
+        ImGui::End();
+    }
+    int selected_vertex_index = -1;
     for(i = 0; i < nodes.num_vertices; i++)
     {                           // Create a window called "Hello, world!" and append into it.
         if(nodes.vertices[i] != NULL)
@@ -222,8 +237,32 @@ static void MainLoopStep(void* window)
                     ImGui::GetForegroundDrawList()->AddLine(pos_from, pos_to, color);
                 }
             }
+            ImGui::Checkbox("link", &(window_data->is_selected));
             ImGui::End();
-        }      
+
+            if(window_data->is_selected)
+            {
+                if(selected_vertex_index != -1)
+                {
+                    struct Window_Data *neighbor_data = (struct Window_Data *)graph_getval(&nodes, selected_vertex_index);
+                    if(graph_has_edge(&nodes, i, selected_vertex_index))
+                    {
+                        graph_delete_edge(&nodes, i, selected_vertex_index);
+                    }
+                    else
+                    {
+                        printf("%d, %d\n", i, selected_vertex_index);
+                        graph_add_edge(&nodes, i, selected_vertex_index);
+                    }
+                    window_data->is_selected = false;
+                    neighbor_data->is_selected = false;
+                }
+                else
+                {
+                    selected_vertex_index = i;
+                }
+            }
+        }
     }
 
     // Rendering

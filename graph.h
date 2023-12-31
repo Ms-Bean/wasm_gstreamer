@@ -35,7 +35,7 @@ void graph_delete_edge(struct Graph *graph, int from, int to)
 }
 int graph_has_edge(struct Graph *graph, int from, int to)
 {
-    return graph->adjacency_matrix[from][to/CHAR_BIT] && (UCHAR_MAX - (1 << (to % CHAR_BIT)));
+    return graph->adjacency_matrix[from][to/CHAR_BIT] & (1 << (to % CHAR_BIT));
 }
 void graph_add_vertex(struct Graph *graph, void *val)
 {

@@ -2678,6 +2678,7 @@ function dbg(text) {
       return WebGPU.preinitializedDeviceId;
     };
 
+
   var _fd_close = (fd) => {
       abort('fd_close called without SYSCALLS_REQUIRE_FILESYSTEM');
     };
@@ -5189,6 +5190,8 @@ var wasmImports = {
   /** @export */
   emscripten_webgpu_get_device: _emscripten_webgpu_get_device,
   /** @export */
+  exit: _exit,
+  /** @export */
   fd_close: _fd_close,
   /** @export */
   fd_seek: _fd_seek,
@@ -5349,9 +5352,9 @@ var wasmImports = {
 };
 var wasmExports = createWasm();
 var ___wasm_call_ctors = createExportWrapper('__wasm_call_ctors');
-var _main = Module['_main'] = createExportWrapper('__main_argc_argv');
 var _malloc = createExportWrapper('malloc');
 var _free = createExportWrapper('free');
+var _main = Module['_main'] = createExportWrapper('__main_argc_argv');
 var ___errno_location = createExportWrapper('__errno_location');
 var ___funcs_on_exit = createExportWrapper('__funcs_on_exit');
 var _fflush = Module['_fflush'] = createExportWrapper('fflush');
