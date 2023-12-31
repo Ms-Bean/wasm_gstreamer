@@ -11,11 +11,13 @@ int main(void)
 	p = 44;
 	graph_add_vertex(&graph, &p);
 
-	graph_add_edge(&graph, 1, 0);
+	graph_set_edge(&graph, 1, 1, 5);
 
+	printf("%d\n", graph_get_edge(&graph, 1, 1));
 
-	printf("%d\n", graph_has_edge(&graph, 1, 0));
-	printf("%d\n", graph_has_edge(&graph, 1, 1));
+	graph_delete_vertex(&graph, 0);
+	printf("%d\n", graph_get_edge(&graph, 0, 0));
+	
 
 
 	graph_destroy(&graph);

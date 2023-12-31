@@ -15,7 +15,6 @@ struct Graph
 struct Graph graph_init(size_t size)
 {
     struct Graph graph;
-    int i;
 
     graph.size = size;
     graph.num_vertices = 0;
@@ -25,17 +24,13 @@ struct Graph graph_init(size_t size)
 
     return graph;
 }
-void graph_add_edge(struct Graph *graph, int from, int to)
+void graph_set_edge(struct Graph *graph, int from, int to, unsigned char weight)
 {
-    graph->adjacency_matrix[from][to/CHAR_BIT] |= (1 << (to % CHAR_BIT));
+    graph->adjacency_matrix[from][to] = weight;
 }
-void graph_delete_edge(struct Graph *graph, int from, int to)
+unsigned char graph_get_edge(struct Graph *graph, int from, int to)
 {
-    graph->adjacency_matrix[from][to/CHAR_BIT] &= (UCHAR_MAX - (1 << (to % CHAR_BIT)));
-}
-int graph_has_edge(struct Graph *graph, int from, int to)
-{
-    return graph->adjacency_matrix[from][to/CHAR_BIT] & (1 << (to % CHAR_BIT));
+    return graph->adjacency_matrix[from][to];
 }
 void graph_add_vertex(struct Graph *graph, void *val)
 {
@@ -65,24 +60,21 @@ void graph_add_vertex(struct Graph *graph, void *val)
         printf("graph_add_vertex: realloc error\n");
         exit(4);
     }
-    graph->adjacency_matrix[graph->num_vertices - 1] = (unsigned char *)calloc(graph->num_vertices / CHAR_BIT + 1, sizeof(unsigned char));
+    graph->adjacency_matrix[graph->num_vertices - 1] = (unsigned char *)calloc(graph->num_vertices, sizeof(unsigned char));
     if(graph->adjacency_matrix[graph->num_vertices - 1] == NULL)
     {
         printf("graph_add_vertex: calloc error\n");
         exit(4);
     }
-    if(graph->num_vertices % 8 == 0) /*We'll have to allocate an extra char at the end of each row*/
+    for(i = 0; i < graph->num_vertices - 1; i++)
     {
-        for(i = 0; i < graph->num_vertices - 1; i++)
+        graph->adjacency_matrix[i] = (unsigned char *)realloc(graph->adjacency_matrix[i], sizeof(unsigned char) * graph->num_vertices);
+        if(graph->adjacency_matrix[i] == NULL)
         {
-            graph->adjacency_matrix[i] = (unsigned char *)realloc(graph->adjacency_matrix[i], sizeof(unsigned char) * (graph->num_vertices / CHAR_BIT + 1));
-            if(graph->adjacency_matrix[i] == NULL)
-            {
-                printf("graph_add_vertex: realloc error\n");
-                exit(4);
-            }
-            graph->adjacency_matrix[i][graph->num_vertices / CHAR_BIT] = 0;
+            printf("graph_add_vertex: realloc error\n");
+            exit(4);
         }
+        graph->adjacency_matrix[i][graph->num_vertices - 1] = 0;
     }
 }
 void graph_delete_vertex(struct Graph *graph, int index)
@@ -110,16 +102,8 @@ void graph_delete_vertex(struct Graph *graph, int index)
 
     /* << */
     for(i = 0; i < graph->num_vertices; i++)
-    {
         for(j = index; j < graph->num_vertices-1; j++)
-        {
-            if(graph_has_edge(graph, i, j+1))
-                graph_add_edge(graph, i, j);
-            else
-                graph_delete_edge(graph, i, j);
-        }
-        graph_delete_edge(graph, i, graph->num_vertices - 1);
-    }
+            graph_set_edge(graph, i, j, graph_get_edge(graph, i, j+1));
 
     /* ^^ */
     free(graph->adjacency_matrix[index]);
@@ -129,17 +113,13 @@ void graph_delete_vertex(struct Graph *graph, int index)
     memmove(graph->vertices + index, graph->vertices + index + 1, sizeof(void *) * (graph->num_vertices - index - 1));
 
     graph->num_vertices--;
-    if(graph->num_vertices % 8 == 0) /*We can free a char at the end of each row.*/
+    for(i = 0; i < graph->num_vertices; i++)
     {
-        int i;
-        for(i = 0; i < graph->num_vertices; i++)
+        graph->adjacency_matrix[i] = (unsigned char *)realloc(graph->adjacency_matrix[i], sizeof(unsigned char) * graph->num_vertices);
+        if(graph->adjacency_matrix[i] == NULL)
         {
-            graph->adjacency_matrix[i] = (unsigned char *)realloc(graph->adjacency_matrix[i], sizeof(unsigned char) * (graph->num_vertices / CHAR_BIT + 1));
-            if(graph->adjacency_matrix[i] == NULL)
-            {
-                printf("graph_delete_vertex: realloc error\n");
-                exit(4);
-            }
+            printf("graph_delete_vertex: realloc error\n");
+            exit(4);
         }
     }
 }

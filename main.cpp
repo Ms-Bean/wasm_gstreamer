@@ -11,6 +11,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_wgpu.h"
 #include "graph.h"
+#include "node_editor.h"
 #include <stdio.h>
 #include <string.h>
 #include <emscripten.h>
@@ -27,16 +28,6 @@ static WGPUTextureFormat wgpu_preferred_fmt = WGPUTextureFormat_RGBA8Unorm;
 static WGPUSwapChain     wgpu_swap_chain = nullptr;
 static int               wgpu_swap_chain_width = 0;
 static int               wgpu_swap_chain_height = 0;
-
-struct Window_Data
-{
-    char *title;
-    bool is_active;
-    float pos_x;
-    float pos_y;
-
-    bool is_selected;
-};
 
 struct Graph nodes;
 
@@ -115,7 +106,7 @@ int main(int, char**)
 #endif
 
 
-    nodes = graph_init(sizeof(struct Window_Data));
+    nodes = graph_init(sizeof(struct Component_Data));
 
 
     // This function will directly return and exit the main function.
@@ -185,13 +176,15 @@ static void MainLoopStep(void* window)
 
     static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     static int node_counter = 0;
-    static bool show_create_nodes_window = true;
-    if(show_create_nodes_window)
+    static bool show_type_1_window = true;
+    static bool show_type_2_window = true;
+
+    if(show_type_1_window)
     {
-        ImGui::Begin("Create new nodes", &show_create_nodes_window);
+        ImGui::Begin("Type 1", &show_type_1_window);
         if(ImGui::Button("Add Node"))
         {
-            struct Window_Data new_window;
+            struct Component_Data new_component;
             char *title = NULL;
             int char_count;
             
@@ -206,60 +199,76 @@ static void MainLoopStep(void* window)
             }
             snprintf(title, sizeof(char) * (char_count + 1), "Node %d", node_counter);
 
-            new_window.title = title;
-            new_window.pos_x = new_window.pos_y = 0;
-            new_window.is_active = 1;
-            new_window.is_selected = 0;
-            graph_add_vertex(&nodes, &new_window);
+            printf("Creating.\n");
+            new_component = create_component(title, 2);
+            printf("Created.\n");
+            graph_add_vertex(&nodes, &new_component);
         }
         ImGui::End();
     }
-    int selected_vertex_index = -1;
     for(i = 0; i < nodes.num_vertices; i++)
-    {                           // Create a window called "Hello, world!" and append into it.
-        if(nodes.vertices[i] != NULL)
-        {
-            int j;
-            struct Window_Data *window_data = (struct Window_Data *)graph_getval(&nodes, i);
-            ImGui::Begin(window_data->title, &window_data->is_active);     
-            ImGui::Text("%s\n", window_data->title);
-            window_data->pos_x = ImGui::GetWindowPos().x;
-            window_data->pos_y = ImGui::GetWindowPos().y;
+    {     
+        int j;
+        unsigned char weight;
+        struct Component_Data *component_data = (struct Component_Data *)graph_getval(&nodes, i);
+        ImGui::Begin(component_data->title, &component_data->is_active, ImGuiWindowFlags_NoResize);     
+        ImGui::Text("%s\n", component_data->title);
+        component_data->pos_x = ImGui::GetWindowPos().x;
+        component_data->pos_y = ImGui::GetWindowPos().y;
 
+        for(j = 0; j < nodes.num_vertices; j++)
+        {
+            if((weight = graph_get_edge(&nodes, i, j)))
+            {
+                struct Component_Data *neighbor_data = (struct Component_Data *)graph_getval(&nodes, j);
+                ImVec2 pos_from = ImVec2(ImGui::GetWindowPos().x + ImGui::GetWindowWidth(), ImGui::GetWindowPos().y + ImGui::GetWindowHeight() - 10);
+                ImVec2 pos_to = ImVec2(neighbor_data->pos_x, neighbor_data->pos_y + 50 + (weight - 1) * 25);
+                ImU32 color = 0xFFFFFFFF;
+                ImGui::GetForegroundDrawList()->AddLine(pos_from, pos_to, color);
+            }
+        }
+        for(j = 0; j < component_data->num_inputs; j++)
+        {
+            char *label = NULL;
+            int char_count;
+            
+            char_count = snprintf(label, 0, "input %d", j + 1);
+
+            label = (char *)malloc(sizeof(char) * (char_count + 1));
+            if(label == NULL)
+            {
+                printf("MainLoopStep: malloc error\n");
+                exit(4);
+            }
+            snprintf(label, sizeof(char) * (char_count + 1), "input %d", j + 1);
+            ImGui::Checkbox(label, component_data->checkboxes_selected + j);
+
+            free(label);
+        }
+        ImGui::Checkbox("output", &(component_data->output_checkbox_selected));
+        ImGui::End();
+
+        if(component_data->output_checkbox_selected)
+        {
             for(j = 0; j < nodes.num_vertices; j++)
             {
-                if(graph_has_edge(&nodes, i, j))
+                int k;
+                struct Component_Data *neighbor_data = (struct Component_Data *)graph_getval(&nodes, j);
+                for(k = 0; k < neighbor_data->num_inputs; k++)
                 {
-                    struct Window_Data *neighbor_data = (struct Window_Data *)graph_getval(&nodes, j);
-                    ImVec2 pos_from = ImVec2(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y);
-                    ImVec2 pos_to = ImVec2(neighbor_data->pos_x, neighbor_data->pos_y);
-                    ImU32 color = 0xFFFFFFFF;
-                    ImGui::GetForegroundDrawList()->AddLine(pos_from, pos_to, color);
-                }
-            }
-            ImGui::Checkbox("link", &(window_data->is_selected));
-            ImGui::End();
-
-            if(window_data->is_selected)
-            {
-                if(selected_vertex_index != -1)
-                {
-                    struct Window_Data *neighbor_data = (struct Window_Data *)graph_getval(&nodes, selected_vertex_index);
-                    if(graph_has_edge(&nodes, i, selected_vertex_index))
+                    if(neighbor_data->checkboxes_selected[k])
                     {
-                        graph_delete_edge(&nodes, i, selected_vertex_index);
+                        if(graph_get_edge(&nodes, i, j) == k + 1)
+                        {
+                            graph_set_edge(&nodes, i, j, 0);
+                        }
+                        else
+                        {
+                            graph_set_edge(&nodes, i, j, k + 1);
+                        }
+                        neighbor_data->checkboxes_selected[k] = false;
+                        component_data->output_checkbox_selected = false;
                     }
-                    else
-                    {
-                        printf("%d, %d\n", i, selected_vertex_index);
-                        graph_add_edge(&nodes, i, selected_vertex_index);
-                    }
-                    window_data->is_selected = false;
-                    neighbor_data->is_selected = false;
-                }
-                else
-                {
-                    selected_vertex_index = i;
                 }
             }
         }
