@@ -1,0 +1,9 @@
+[submodule "emsdk"]
+	path = emsdk
+	url = https://github.com/emscripten-core/emsdk.git
+[submodule "imgui"]
+	path = imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "imgui-node-editor"]
+	path = imgui-node-editor
+	url = https://github.com/thedmd/imgui-node-editor.git
