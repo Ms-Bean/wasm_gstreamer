@@ -97,7 +97,7 @@ int pipeline_add_component(struct Pipeline *pipeline, int n_inputs, int n_params
         new_component->outgoing_connection_indices = NULL;
     }
 
-    pipeline->components = (struct Pipeline_Component **)realloc(pipeline->components, sizeof(struct Pipeline_Component * ) * pipeline->n_components);
+    pipeline->components = (struct Pipeline_Component **)realloc(pipeline->components, sizeof(struct Pipeline_Component * ) * (pipeline->n_components + 1));
     if(pipeline->components == NULL)
     {
         fprintf(stderr, "pipeline_add_component: realloc error\n");
@@ -115,8 +115,6 @@ void pipeline_add_connection(struct Pipeline *pipeline, int component_index_from
 }
 void pipeline_set_param(struct Pipeline *pipeline, int component_index, int param_index, void *param)
 {
-    if(pipeline->components[component_index]->params[param_index] != NULL)
-        free(pipeline->components[component_index]->params[param_index]);
     pipeline->components[component_index]->params[param_index] = param;
 }
 void pipeline_remove_param(struct Pipeline *pipeline, int component_index, int param_index, void *param)
@@ -142,11 +140,19 @@ void pipeline_remove_component(struct Pipeline *pipeline, int component_index)
         pipeline->components[i] = pipeline->components[i+1];
     
     (pipeline->n_components)--;
-    pipeline->components = (struct Pipeline_Component **)realloc(pipeline->components, sizeof(struct Pipeline_Component *) * pipeline->n_components);
-    if(pipeline->components == NULL)
+    if(pipeline->n_components == 0)
     {
-        fprintf(stderr, "pipeline_remove_component: realloc error\n");
-        exit(4);
+        free(pipeline->components);
+        pipeline->components = NULL;
+    }
+    else
+    {
+        pipeline->components = (struct Pipeline_Component **)realloc(pipeline->components, sizeof(struct Pipeline_Component *) * pipeline->n_components);
+        if(pipeline->components == NULL)
+        {
+            fprintf(stderr, "pipeline_remove_component: realloc error\n");
+            exit(4);
+        }
     }
 }
 

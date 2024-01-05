@@ -4,6 +4,6 @@
 [submodule "imgui"]
 	path = imgui
 	url = https://github.com/ocornut/imgui.git
-[submodule "imgui-node-editor"]
-	path = imgui-node-editor
-	url = https://github.com/thedmd/imgui-node-editor.git
+[submodule "gstreamer"]
+	path = gstreamer
+	url = https://github.com/fluendo/gstreamer.git
