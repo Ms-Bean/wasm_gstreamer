@@ -21,17 +21,14 @@ bool show_another_window = false;
 int g_width;
 int g_height;
 
-// Function used by c++ to get the size of the html canvas
 EM_JS(int, canvas_get_width, (), {
   return Module.canvas.width;
 });
 
-// Function used by c++ to get the size of the html canvas
 EM_JS(int, canvas_get_height, (), {
   return Module.canvas.height;
 });
 
-// Function called by javascript
 EM_JS(void, resizeCanvas, (), {
   js_resizeCanvas();
 });
@@ -61,41 +58,14 @@ void loop()
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
 
-  // 1. Show a simple window.
-  // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets automatically appears in a window called "Debug".
   {
-      static float f = 0.0f;
-      static int counter = 0;
-      ImGui::Text("Hello, world!");                           // Display some text (you can use a format string too)
-      ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
-
-      ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our windows open/close state
-      ImGui::Checkbox("Another Window", &show_another_window);
-
-      if (ImGui::Button("Button"))                            // Buttons return true when clicked (NB: most widgets return true when edited/activated)
-          counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+      ImGui::Text("Hello, world!");
   }
 
-  // 2. Show another simple window. In most cases you will use an explicit Begin/End pair to name your windows.
   if (show_another_window)
   {
       ImGui::Begin("Another Window", &show_another_window);
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-          show_another_window = false;
       ImGui::End();
-  }
-
-  // 3. Show the ImGui demo window. Most of the sample code is in ImGui::ShowDemoWindow(). Read its code to learn more about Dear ImGui!
-  if (show_demo_window)
-  {
-      ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver); // Normally user code doesn't need/want to call this because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
-      ImGui::ShowDemoWindow(&show_demo_window);
   }
 
   ImGui::Render();
@@ -120,9 +90,8 @@ int init_gl()
       return 1;
   }
 
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-  // Open a window and create its OpenGL context
   int canvasWidth = g_width;
   int canvasHeight = g_height;
   g_window = glfwCreateWindow(canvasWidth, canvasHeight, "WebGui Demo", NULL, NULL);
@@ -132,7 +101,7 @@ int init_gl()
       glfwTerminate();
       return -1;
   }
-  glfwMakeContextCurrent(g_window); // Initialize GLEW
+  glfwMakeContextCurrent(g_window);
 
   return 0;
 }
@@ -140,13 +109,11 @@ int init_gl()
 
 int init_imgui()
 {
-  // Setup Dear ImGui binding
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGui_ImplGlfw_InitForOpenGL(g_window, true);
   ImGui_ImplOpenGL3_Init();
 
-  // Setup style
   ImGui::StyleColorsDark();
 
   ImGuiIO& io = ImGui::GetIO();
@@ -161,29 +128,29 @@ int init_imgui()
 
 int init()
 {
-  init_gl();
-  init_imgui();
-  return 0;
+    init_gl();
+    init_imgui();
+    return 0;
 }
 
 
 void quit()
 {
-  glfwTerminate();
+    glfwTerminate();
 }
 
 
 extern "C" int main(int argc, char** argv)
 {
-  g_width = canvas_get_width();
-  g_height = canvas_get_height();
-  if (init() != 0) return 1;
+    g_width = canvas_get_width();
+    g_height = canvas_get_height();
+    if (init() != 0) return 1;
 
-  #ifdef __EMSCRIPTEN__
-  emscripten_set_main_loop(loop, 0, 1);
-  #endif
+    #ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(loop, 0, 1);
+    #endif
 
-  quit();
+    quit();
 
-  return 0;
+    return 0;
 }
