@@ -13,12 +13,12 @@ struct Pipeline_Component
     int n_outputs; /*The number of outputs*/
     struct Pipeline_Component **outgoing_connections; /* The component that the output is fed as input to*/
     int *outgoing_connection_indices; /*The index of the input in that component */
+    void ***outgoing_connection_inputs; /*An array of pointers to the inputs that the output is fed into*/
 
-    /* The action function. Takes in the inputs, params, outputs for the first 3 parameters.*/
-    /* The last two parameters are a component that recieves the output as input, and the index of that input in the inputs array repsectively*/
-    /* It should read the input values and parameters in whatever manner it wants, as long as it is of the correct size,
-       and then it should allocate space for and set the outputs using the last two variables.*/
-    void (*action)(void **, void **, struct Pipeline_Component **, int *);
+    /* The action function. Takes in the inputs, params, outgoing_connection_inputs for the first 3 parameters.*/
+    /* It should read the input values and parameters
+       and then it should allocate space for and send its output to the inputs of other components with the last argument*/
+    void (*action)(void **, void **, void ***);
 };
 struct Pipeline
 {
@@ -34,10 +34,9 @@ struct Pipeline pipeline_init(void)
     return out;
 }
 
-int pipeline_add_component(struct Pipeline *pipeline, int n_inputs, int n_params, int n_outputs, void (*action)(void **, void **, struct Pipeline_Component **, int *))
+int pipeline_add_component(struct Pipeline *pipeline, int n_inputs, int n_params, int n_outputs, void (*action)(void **, void **, void ***))
 {
     struct Pipeline_Component *new_component;
-    int i;
 
     new_component = (struct Pipeline_Component *)malloc(sizeof(struct Pipeline_Component));
     if(new_component == NULL)
@@ -90,11 +89,18 @@ int pipeline_add_component(struct Pipeline *pipeline, int n_inputs, int n_params
             fprintf(stderr, "pipeline_add_component: calloc error\n");
             exit(4);
         }
+        new_component->outgoing_connection_inputs = (void ***)calloc(n_outputs, sizeof(void **));
+        if(new_component->outgoing_connection_inputs == NULL)
+        {
+            fprintf(stderr, "pipeline_add_component: calloc error\n");
+            exit(4);
+        }
     }
     else
     {
         new_component->outgoing_connections = NULL;
         new_component->outgoing_connection_indices = NULL;
+        new_component->outgoing_connection_inputs = NULL;
     }
 
     pipeline->components = (struct Pipeline_Component **)realloc(pipeline->components, sizeof(struct Pipeline_Component * ) * (pipeline->n_components + 1));
@@ -104,14 +110,15 @@ int pipeline_add_component(struct Pipeline *pipeline, int n_inputs, int n_params
         exit(4);
     }
     new_component->action = action;
-
     pipeline->components[pipeline->n_components] = new_component;
+
     return (pipeline->n_components)++;
 }
 void pipeline_add_connection(struct Pipeline *pipeline, int component_index_from, int output_index_from, int component_index_to, int input_index_to)
 {
     pipeline->components[component_index_from]->outgoing_connections[output_index_from] = pipeline->components[component_index_to];
     pipeline->components[component_index_from]->outgoing_connection_indices[output_index_from] = input_index_to;
+    pipeline->components[component_index_from]->outgoing_connection_inputs[output_index_from] = &(pipeline->components[component_index_to]->inputs[input_index_to]);
 }
 void pipeline_set_param(struct Pipeline *pipeline, int component_index, int param_index, void *param)
 {
@@ -124,14 +131,27 @@ void pipeline_remove_param(struct Pipeline *pipeline, int component_index, int p
 void pipeline_remove_connection(struct Pipeline *pipeline, int component_index_from, int output_index_from)
 {
     pipeline->components[component_index_from]->outgoing_connections[output_index_from] = NULL;
+    pipeline->components[component_index_from]->outgoing_connection_indices[output_index_from] = 0;
+    pipeline->components[component_index_from]->outgoing_connection_inputs[output_index_from] = NULL;
 }
 void pipeline_remove_component(struct Pipeline *pipeline, int component_index)
 {
     int i;
     struct Pipeline_Component *removed = pipeline->components[component_index];
 
+    /*Remove all outgoing connections to the component to be removed*/
+    for(i = 0; i < pipeline->n_components; i++)
+    {
+        int j;
+        for(j = 0; j < pipeline->components[i]->n_outputs; j++)
+        {
+            if(pipeline->components[i]->outgoing_connections[j] == removed)
+                pipeline_remove_connection(pipeline, i, j);
+        }
+    }
     free(removed->outgoing_connections);
     free(removed->outgoing_connection_indices);
+    free(removed->outgoing_connection_inputs);
     free(removed->inputs);
     free(removed->params);
     free(removed);
@@ -216,8 +236,7 @@ void pipeline_execute(struct Pipeline *pipeline)
             }
             if(flag == 1)
                 continue;
-            printf("Calling action function in component %d\n", i);
-            pipeline->components[i]->action(pipeline->components[i]->inputs, pipeline->components[i]->params, pipeline->components[i]->outgoing_connections, pipeline->components[i]->outgoing_connection_indices);
+            pipeline->components[i]->action(pipeline->components[i]->inputs, pipeline->components[i]->params, pipeline->components[i]->outgoing_connection_inputs);
             visited[i] = 1;
             visited_count++;
         }

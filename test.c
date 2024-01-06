@@ -1,11 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "pipeline_editor.h"
+#include "pipeline_components.h"
 
-void add(void **inputs, void **params, struct Pipeline_Component **outgoing_connections, int *outgoing_connection_input_indices);
-void number_source(void **inputs, void **params, struct Pipeline_Component **outgoing_connections, int *outgoing_connection_input_indices);
-void nop(void **inputs, void **params, struct Pipeline_Component **outgoing_connections, int *outgoing_connection_input_indices);
+void add(void **inputs, void **params, void ***outputs);
+void number_source(void **inputs, void **params, void ***outputs);
+void nop(void **inputs, void **params, void ***outputs);
 
 int main(void)
 {
@@ -20,6 +20,11 @@ int main(void)
     int add_index = pipeline_add_component(&pipeline, 2, 0, 1, add);
     int sink_component_index = pipeline_add_component(&pipeline, 1, 0, 0, nop);
 
+    pipeline_add_connection(&pipeline, source_index_1, 0, add_index, 0);
+    pipeline_remove_component(&pipeline, sink_component_index);
+    sink_component_index = pipeline_add_component(&pipeline, 1, 0, 0, nop);
+    pipeline_add_connection(&pipeline, source_index_1, 0, add_index, 0);
+
     pipeline_set_param(&pipeline, source_index_1, 0, &a);
     pipeline_set_param(&pipeline, source_index_2, 0, &b);
 
@@ -29,39 +34,45 @@ int main(void)
     pipeline_add_connection(&pipeline, add_index, 0, sink_component_index, 0);
 
     pipeline_execute(&pipeline);
+    printf("%d\n", *((int *)(pipeline_fetch_inputs(&pipeline, sink_component_index)[0])));
+
+    pipeline_free_outputs(&pipeline);
+    a = 10;
+    b = 10;
+    pipeline_execute(&pipeline);
 
     printf("%d\n", *((int *)(pipeline_fetch_inputs(&pipeline, sink_component_index)[0])));
 
+    pipeline_destroy(&pipeline);
     return 0;
 }
 
-void add(void **inputs, void **params, struct Pipeline_Component **outgoing_connections, int *outgoing_connection_input_indices)
+void add(void **inputs, void **params, void ***outputs)
 {
     int a = *((int *)inputs[0]);
     int b = *((int *)inputs[1]);
-    printf("%d, %d\n", a, b);
-    outgoing_connections[outgoing_connection_input_indices[0]]->inputs[0] = malloc(sizeof(int));
-    if(outgoing_connections[outgoing_connection_input_indices[0]]->inputs[0] == NULL)
+    *(outputs[0]) = malloc(sizeof(int));
+    if(*(outputs[0]) == NULL)
     {
-        fprintf(stderr, "main: malloc error\n");
+        fprintf(stderr, "add: malloc error\n");
         exit(4);
     }
-    *((int *)outgoing_connections[0]->inputs[outgoing_connection_input_indices[0]]) = a + b;
+    *((int *)(*(outputs[0]))) = a + b;
 }
 
-void number_source(void **inputs, void **params, struct Pipeline_Component **outgoing_connections, int *outgoing_connection_input_indices)
+void number_source(void **inputs, void **params, void ***outputs)
 {
     int num = *((int *)params[0]);
-    outgoing_connections[0]->inputs[outgoing_connection_input_indices[0]] = malloc(sizeof(int));
-    if(outgoing_connections[0]->inputs[0] == NULL)
+    *(outputs[0]) = malloc(sizeof(int));
+    if(*(outputs[0]) == NULL)
     {
         fprintf(stderr, "main: malloc error\n");
         exit(4);
     }
-    *((int *)outgoing_connections[0]->inputs[outgoing_connection_input_indices[0]]) = num;
+    *((int *)(*(outputs[0]))) = num;
 }
 
-void nop(void **inputs, void **params, struct Pipeline_Component **outgoing_connections, int *outgoing_connection_input_indices)
+void nop(void **inputs, void **params, void ***outputs)
 {
     return;
 }
