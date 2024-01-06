@@ -3,23 +3,28 @@
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #endif
-
-#define GLFW_INCLUDE_ES3
-#include <GLES3/gl3.h>
-#include <GLFW/glfw3.h>
-
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_opengl3.h"
-#include <iostream>
-
+#include "diagram_editor.h"
+#include "pipeline_functions.h"
 
 GLFWwindow* g_window;
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 bool show_demo_window = true;
-bool show_another_window = false;
+bool show_another_window = true;
 int g_width;
 int g_height;
+
+char *number_source_title = (char *)"Number";
+char *number_source_parameter_labels[] = {(char *)"value"};
+char *number_source_output_labels[] = {(char *)"output"};
+
+char *add_title = (char *)"Add";
+char *add_input_labels[] = {(char *)"input 1", (char *)"input 2"};
+char *add_output_labels[] = {(char *)"sum"};
+
+char *sink_title = (char *)"Sink";
+char *sink_input_labels[] = {(char *)"input 1"};
+
+struct Diagram diagram;
 
 EM_JS(int, canvas_get_width, (), {
   return Module.canvas.width;
@@ -57,16 +62,9 @@ void loop()
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
+  
 
-  {
-      ImGui::Text("Hello, world!");
-  }
-
-  if (show_another_window)
-  {
-      ImGui::Begin("Another Window", &show_another_window);
-      ImGui::End();
-  }
+  show_diagram(&diagram);
 
   ImGui::Render();
 
@@ -86,20 +84,20 @@ int init_gl()
 {
   if( !glfwInit() )
   {
-      fprintf( stderr, "Failed to initialize GLFW\n" );
-      return 1;
+    fprintf( stderr, "Failed to initialize GLFW\n" );
+    return 1;
   }
 
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
   int canvasWidth = g_width;
   int canvasHeight = g_height;
-  g_window = glfwCreateWindow(canvasWidth, canvasHeight, "WebGui Demo", NULL, NULL);
+  g_window = glfwCreateWindow(canvasWidth, canvasHeight, "Demo", NULL, NULL);
   if( g_window == NULL )
   {
-      fprintf( stderr, "Failed to open GLFW window.\n" );
-      glfwTerminate();
-      return -1;
+    fprintf( stderr, "Failed to open GLFW window.\n" );
+    glfwTerminate();
+    return -1;
   }
   glfwMakeContextCurrent(g_window);
 
@@ -125,32 +123,44 @@ int init_imgui()
   return 0;
 }
 
+int init_diagram()
+{
+  diagram = diagram_init();
+  diagram_add_component(&diagram, number_source_title, 0, 0, NULL, number_source_output_labels, number_source_parameter_labels, 0, 1, 1, number_source);
+  diagram_add_component(&diagram, number_source_title, 0, 1, NULL, number_source_output_labels, number_source_parameter_labels, 0, 1, 1, number_source);
+  
+  diagram_add_component(&diagram, add_title, 0, 2, add_input_labels, add_output_labels, NULL, 2, 0, 1, add);
+  diagram_add_component(&diagram, sink_title, 0, 3, sink_input_labels, NULL, NULL, 1, 0, 0, nop);
+  
+  return 0;
+}
 
 int init()
 {
-    init_gl();
-    init_imgui();
-    return 0;
+  init_gl();
+  init_imgui();
+  init_diagram();
+  return 0;
 }
 
 
 void quit()
 {
-    glfwTerminate();
+  glfwTerminate(); 
 }
 
 
 extern "C" int main(int argc, char** argv)
 {
-    g_width = canvas_get_width();
-    g_height = canvas_get_height();
-    if (init() != 0) return 1;
+  g_width = canvas_get_width();
+  g_height = canvas_get_height();
+  if (init() != 0) return 1;
 
-    #ifdef __EMSCRIPTEN__
-    emscripten_set_main_loop(loop, 0, 1);
-    #endif
+  #ifdef __EMSCRIPTEN__
+  emscripten_set_main_loop(loop, 0, 1);
+  #endif
 
-    quit();
+  quit();
 
-    return 0;
+  return 0;
 }

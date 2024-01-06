@@ -124,7 +124,7 @@ void pipeline_set_param(struct Pipeline *pipeline, int component_index, int para
 {
     pipeline->components[component_index]->params[param_index] = param;
 }
-void pipeline_remove_param(struct Pipeline *pipeline, int component_index, int param_index, void *param)
+void pipeline_remove_param(struct Pipeline *pipeline, int component_index, int param_index)
 {
     pipeline->components[component_index]->params[param_index] = NULL;
 }

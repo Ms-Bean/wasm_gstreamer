@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "pipeline_components.h"
+#include "diagram_editor.h"
 
 void add(void **inputs, void **params, void ***outputs);
 void number_source(void **inputs, void **params, void ***outputs);
